@@ -1,5 +1,10 @@
 import streamlit as st
 from datetime import datetime
+try:
+    from agent.agent import chat
+    AGENT_OK = True
+except Exception:
+    AGENT_OK = False
 
 st.set_page_config(page_title="Arogya Mitra | Pilot: Odisha", page_icon="🩺", layout="wide")
 
@@ -138,10 +143,9 @@ st.sidebar.success(f"✅ {district} | {language}")
 
 T = CONTENT[language]
 
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["🩺 Symptom Checker", "💬 Quick Help", "🏥 Hospital Finder", "ℹ️ About"]
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["🩺 Symptom Checker", "💬 Quick Help", "🏥 Hospital Finder", "ℹ️ About", "🤖 AI Assistant"]
 )
-
 # ---------------------------------------------------------------------------
 # Tab 1: Symptom checker (rule-based)
 # ---------------------------------------------------------------------------
@@ -269,6 +273,32 @@ with tab4:
     )
     st.write("**Current status:** early prototype. Symptom guidance is rule-based and has not been clinically validated.")
     st.write("**In progress:** conversational AI agent, sourced hospital data, and tested accuracy.")
+with tab5:
+    st.subheader("🤖 AI Health Assistant")
+    st.caption("Type in Odia, Hindi or English. Guidance only, not a diagnosis.")
+    if not AGENT_OK:
+        st.warning("The AI assistant is not configured yet.")
+    else:
+        if "history" not in st.session_state:
+            st.session_state.history = []
+            st.session_state.messages = []
+        for m in st.session_state.messages:
+            with st.chat_message(m["role"]):
+                st.markdown(m["content"])
+        prompt = st.chat_input("Describe your problem...")
+        if prompt:
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    try:
+                        reply = chat(st.session_state.history, prompt, district)
+                    except Exception:
+                        reply = "Sorry, the AI is busy right now. Please try again in a minute."
+                st.markdown(reply)
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+
 
 st.divider()
 st.caption(
