@@ -39,9 +39,9 @@ EMERGENCY_WORDS = [
 ]
 
 EMERGENCY_MSG = (
-    "EMERGENCY: Call 108 now or go to the nearest hospital immediately.\n"
-    "ଜରୁରୀକାଳୀନ: ଏବେ 108 କୁ କଲ୍ କରନ୍ତୁ କିମ୍ବା ନିକଟତମ ହସ୍ପିଟାଲକୁ ତୁରନ୍ତ ଯାଆନ୍ତୁ।\n"
-    "आपातकाल: अभी 108 पर कॉल करें या तुरंत नजदीकी अस्पताल जाएं।"
+    "🚨 **EMERGENCY:** Call 108 now or go to the nearest hospital immediately.\n\n"
+    "🚨 **ଜରୁରୀକାଳୀନ:** ଏବେ 108 କୁ କଲ୍ କରନ୍ତୁ କିମ୍ବା ନିକଟତମ ହସ୍ପିଟାଲକୁ ତୁରନ୍ତ ଯାଆନ୍ତୁ।\n\n"
+    "🚨 **आपातकाल:** अभी 108 पर कॉल करें या तुरंत नजदीकी अस्पताल जाएं।"
 )
 
 SYSTEM = """You are Arogya Mitra, a health guidance assistant for rural Odisha.
@@ -53,6 +53,7 @@ SYSTEM = """You are Arogya Mitra, a health guidance assistant for rural Odisha.
 - For anything serious, tell them to call 108 (emergency).
 - When replying in Odia, use simple spoken Odia that a village resident would understand. Avoid bookish or Sanskrit-heavy words. Do not add English words in brackets.
 - Keep replies short: at most 5 bullet points.
+- Format: write every bullet point on its own new line starting with "- ", and leave a blank line between sections.
 - End with a one-line reminder that this is guidance, not a diagnosis."""
 
 
