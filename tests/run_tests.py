@@ -1,0 +1,33 @@
+import csv
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+from agent.agent import is_emergency
+
+path = os.path.join(ROOT, "tests", "test_cases.csv")
+total = 0
+correct = 0
+wrong = []
+
+with open(path, encoding="utf-8-sig", newline="") as f:
+    for row in csv.DictReader(f):
+        expected = row["expected"].strip()
+        got = "emergency" if is_emergency(row["text"]) else "not_emergency"
+        total += 1
+        if got == expected:
+            correct += 1
+        else:
+            wrong.append((row["text"], expected, got))
+
+lines = [f"Emergency detection: {correct}/{total} correct ({100 * correct / total:.0f}%)"]
+for text, exp, got in wrong:
+    lines.append(f"WRONG: {text} | expected {exp} | got {got}")
+
+out = os.path.join(ROOT, "tests", "results.txt")
+with open(out, "w", encoding="utf-8") as f:
+    f.write("\n".join(lines))
+
+print(lines[0])
+print(f"{len(wrong)} wrong. Details saved in tests/results.txt")

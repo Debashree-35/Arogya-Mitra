@@ -1,4 +1,6 @@
 import csv
+import re
+import unicodedata
 import os
 import time
 from dotenv import load_dotenv
@@ -53,11 +55,15 @@ EMERGENCY_WORDS = [
     # Odia
     "ଛାତି ବିନ୍ଧ", "ଛାତିରେ ଯନ୍ତ୍ରଣା", "ନିଶ୍ୱାସ ନେବାକୁ କଷ୍ଟ", "ଶ୍ୱାସକଷ୍ଟ",
     "ବେହୋସ", "ଅଚେତ", "ରକ୍ତ ବାନ୍ତି", "ସାପ କାମୁଡ଼ା",
+         "ସାପ କାମୁଡ",   
+    
     # Hindi
     "सीने में दर्द", "सांस लेने में तकलीफ", "सांस फूल", "बेहोश",
     "दौरा", "खून की उल्टी", "सांप ने काटा", "ज़हर", "जहर",
     # Odia/Hindi in English letters
     "chhati bindh", "behosh", "saans lene mein", "sapa kamuda",
+        "chhati bindhuchi", "chhati bindhu", "chati bindhuchi", "chhati bindha",
+    "sapa kamudichi", "behosha",
 ]
 
 EMERGENCY_MSG = (
@@ -95,10 +101,23 @@ def find_hospitals(district: str) -> list:
     return result
 
 
-def is_emergency(text: str) -> bool:
-    t = text.lower()
-    return any(w in t for w in EMERGENCY_WORDS)
+NEGATIONS = r"(?:no|not|without|never|gone)"
 
+
+def is_emergency(text: str) -> bool:
+    t = unicodedata.normalize("NFC", text.lower())
+    for w in EMERGENCY_WORDS:
+        w = unicodedata.normalize("NFC", w.lower())
+        if w.isascii():
+            # English phrases: whole words only, and skip if just negated
+            for m in re.finditer(r"\b" + re.escape(w) + r"\b", t):
+                before = t[: m.start()]
+                if not re.search(r"\b" + NEGATIONS + r"\s+(?:\w+\s+)?$", before):
+                    return True
+        elif w in t:
+            # Odia and Hindi phrases: plain match
+            return True
+    return False
 
 def call_model(history: list):
     """Try each model, with short retries, until one answers."""
