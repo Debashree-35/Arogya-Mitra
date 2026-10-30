@@ -100,24 +100,80 @@ def find_hospitals(district: str) -> list:
         result.append(line)
     return result
 
+EXTRA_WORDS = [
+    "collapsed", "not waking", "not wake up", "won't wake", "wont wake",
+    "unresponsive", "turning blue", "blue lips", "gasping", "choking",
+    "face drooping", "drooping face", "face is drooping", "cannot speak",
+    "can't speak", "slurred speech", "paralysed", "paralyzed", "stroke",
+    "convulsion", "severe bleeding", "bleeding a lot",
+    "मुंह टेढ़ा", "बोल नहीं पा", "साँस नहीं", "सांस नहीं", "होश नहीं",
+    "hosh nahi", "saans nahi",
+]
+
+CHEST = ["chest", "ଛାତି", "छाती", "सीने", "सीना", "chhati", "chati", "seene", "seena"]
+PAIN = ["pain", "tight", "pressure", "ଯନ୍ତ୍ରଣା", "ବିନ୍ଧ", "दर्द", "dard", "bindh", "jantrana"]
+BLOOD = ["blood", "ରକ୍ତ", "खून", "khoon", "rakta"]
+VOMIT = ["vomit", "ବାନ୍ତି", "उल्टी", "ulti", "banti"]
+BREATH = ["breath", "breathing", "ଶ୍ୱାସ", "ନିଶ୍ୱାସ", "सांस", "साँस", "saans"]
+TROUBLE = ["difficult", "trouble", "cannot", "can't", "hard", "gasp", "short",
+           "କଷ୍ଟ", "तकलीफ", "दिक्कत", "dikkat", "problem"]
+PAIR_RULES = [(CHEST, PAIN), (BLOOD, VOMIT), (BREATH, TROUBLE)]
 
 NEGATIONS = r"(?:no|not|without|never|gone)"
 
 
+def _norm(s: str) -> str:
+    return unicodedata.normalize("NFC", s.lower())
+
+
+def _negated(t: str, pos: int) -> bool:
+    before = t[:pos]
+    return bool(re.search(r"\b" + NEGATIONS + r"\s+(?:\w+\s+){0,2}$", before))
+
+
+def _pair_hit(t: str, group_a: list, group_b: list) -> bool:
+    a_pos = [t.find(_norm(w)) for w in group_a if t.find(_norm(w)) != -1]
+    b_hit = any(_norm(w) in t for w in group_b)
+    if not a_pos or not b_hit:
+        return False
+    return not _negated(t, min(a_pos))
+
+
 def is_emergency(text: str) -> bool:
-    t = unicodedata.normalize("NFC", text.lower())
-    for w in EMERGENCY_WORDS:
-        w = unicodedata.normalize("NFC", w.lower())
+    t = _norm(text)
+    for w in EMERGENCY_WORDS + EXTRA_WORDS:
+        w = _norm(w)
         if w.isascii():
-            # English phrases: whole words only, and skip if just negated
             for m in re.finditer(r"\b" + re.escape(w) + r"\b", t):
-                before = t[: m.start()]
-                if not re.search(r"\b" + NEGATIONS + r"\s+(?:\w+\s+)?$", before):
+                if not _negated(t, m.start()):
                     return True
         elif w in t:
-            # Odia and Hindi phrases: plain match
+            return True
+    for a, b in PAIR_RULES:
+        if _pair_hit(t, a, b):
             return True
     return False
+
+
+def ai_emergency_check(text: str) -> bool:
+    """Backup check for emergencies described in words the word list does not know."""
+    prompt = (
+        "A patient in rural India wrote this message. Does it describe a possible "
+        "medical emergency, for example chest pain, trouble breathing, collapse, "
+        "unconsciousness, stroke signs (one-sided weakness, drooping face, cannot "
+        "speak), heavy bleeding, seizure or fits, snake bite, poisoning, or a very "
+        "sick or blue baby? If it is unclear, answer YES. "
+        "Answer with exactly one word: YES or NO.\n\n"
+        f"Message: {text}"
+    )
+    for model in MODELS:
+        try:
+            r = client.models.generate_content(model=model, contents=prompt)
+            return (r.text or "").strip().upper().startswith("YES")
+        except Exception:
+            continue
+    return False  # if the AI is unavailable, the word list is still active
+
 
 def call_model(history: list):
     """Try each model, with short retries, until one answers."""
@@ -137,10 +193,9 @@ def call_model(history: list):
                 time.sleep(2 * (attempt + 1))
     raise last_error
 
-
 def chat(history: list, user_text: str, district: str) -> str:
-    # Safety check runs in plain code, before the model.
-    if is_emergency(user_text):
+    # Safety check runs before the model: word list first, then AI backup.
+    if is_emergency(user_text) or ai_emergency_check(user_text):
         return EMERGENCY_MSG
 
     history.append(

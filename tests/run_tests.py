@@ -6,7 +6,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from agent.agent import is_emergency
 
-path = os.path.join(ROOT, "tests", "test_cases.csv")
+name = sys.argv[1] if len(sys.argv) > 1 else "test_cases.csv"
+path = os.path.join(ROOT, "tests", name)
 total = 0
 correct = 0
 wrong = []
@@ -21,13 +22,13 @@ with open(path, encoding="utf-8-sig", newline="") as f:
         else:
             wrong.append((row["text"], expected, got))
 
-lines = [f"Emergency detection: {correct}/{total} correct ({100 * correct / total:.0f}%)"]
+lines = [f"{name}: {correct}/{total} correct ({100 * correct / total:.0f}%)"]
 for text, exp, got in wrong:
     lines.append(f"WRONG: {text} | expected {exp} | got {got}")
 
-out = os.path.join(ROOT, "tests", "results.txt")
+out = os.path.join(ROOT, "tests", "results_" + name.replace(".csv", ".txt"))
 with open(out, "w", encoding="utf-8") as f:
     f.write("\n".join(lines))
 
 print(lines[0])
-print(f"{len(wrong)} wrong. Details saved in tests/results.txt")
+print(f"{len(wrong)} wrong. Details saved in {os.path.basename(out)}")

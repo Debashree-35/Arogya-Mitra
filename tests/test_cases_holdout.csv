@@ -1,0 +1,17 @@
+text,expected
+my mother collapsed and is not waking up,emergency
+he is vomiting a lot of blood,emergency
+baby is turning blue and gasping,emergency
+severe chest tightness and pain in left arm,emergency
+my husband cannot speak and his face is drooping,emergency
+ମୋ ମା' ଅଚେତ ହୋଇ ପଡ଼ିଗଲେ,emergency
+ମୋ ଛାତିରେ ବହୁତ ଯନ୍ତ୍ରଣା ହେଉଛି,emergency
+मेरे पिता को सीने में तेज दर्द है,emergency
+bacha behosh ho gaya hai,emergency
+I have mild fever since yesterday,not_emergency
+what should I eat when I have loose motion,not_emergency
+no chest pain only cough,not_emergency
+ମୋର ଦୁଇ ଦିନ ହେଲା ମୁଣ୍ଡ ବିନ୍ଧୁଛି,not_emergency
+mujhe thoda bukhar hai,not_emergency
+my knee hurts when I walk,not_emergency
+I am feeling tired and weak,not_emergency

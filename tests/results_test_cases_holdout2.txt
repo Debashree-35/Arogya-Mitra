@@ -1,0 +1,7 @@
+test_cases_holdout2.csv: 6/12 correct (50%)
+WRONG: my grandfather suddenly fell down and cannot get up and one side of his body is weak | expected emergency | got not_emergency
+WRONG: she is bleeding heavily and feels very dizzy | expected emergency | got not_emergency
+WRONG: the baby is very hot and shaking and his eyes rolled back | expected emergency | got not_emergency
+WRONG: ମୋ ବାପା ହଠାତ୍ ତଳେ ପଡ଼ିଗଲେ ଓ ଉଠି ପାରୁନାହାନ୍ତି | expected emergency | got not_emergency
+WRONG: मेरी माँ की साँस बहुत तेज चल रही है और होंठ नीले पड़ गए हैं | expected emergency | got not_emergency
+WRONG: mo bapa ra chhati re bahut jantrana hauchi | expected emergency | got not_emergency
