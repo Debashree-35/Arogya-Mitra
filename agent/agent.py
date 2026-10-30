@@ -101,7 +101,8 @@ def find_hospitals(district: str) -> list:
     return result
 
 EXTRA_WORDS = [
-    "collapsed", "not waking", "not wake up", "won't wake", "wont wake",
+	    "labour pain", "labor pain", "in labour", "in labor", "baby is not coming",
+    "water broke", "waters broke", "reduced baby movement",       "collapsed", "not waking", "not wake up", "won't wake", "wont wake",
     "unresponsive", "turning blue", "blue lips", "gasping", "choking",
     "face drooping", "drooping face", "face is drooping", "cannot speak",
     "can't speak", "slurred speech", "paralysed", "paralyzed", "stroke",
@@ -159,10 +160,14 @@ def ai_emergency_check(text: str) -> bool:
     """Backup check for emergencies described in words the word list does not know."""
     prompt = (
         "A patient in rural India wrote this message. Does it describe a possible "
-        "medical emergency, for example chest pain, trouble breathing, collapse, "
-        "unconsciousness, stroke signs (one-sided weakness, drooping face, cannot "
-        "speak), heavy bleeding, seizure or fits, snake bite, poisoning, or a very "
-        "sick or blue baby? If it is unclear, answer YES. "
+        "medical emergency? Emergencies include: chest pain, trouble breathing, "
+        "collapse or fainting, unconsciousness, stroke signs (one-sided weakness, "
+        "drooping face, cannot speak), heavy or non-stopping bleeding, seizure or "
+        "fits, snake bite, poisoning or swallowing a harmful substance, a head "
+        "injury with vomiting or sleepiness, a very sick, blue, floppy or shaking "
+        "baby or child, and any serious problem in pregnancy, labour or childbirth "
+        "(for example long or stuck labour, heavy bleeding, fits, or the baby not "
+        "moving). If it is unclear, answer YES. "
         "Answer with exactly one word: YES or NO.\n\n"
         f"Message: {text}"
     )
@@ -173,6 +178,7 @@ def ai_emergency_check(text: str) -> bool:
         except Exception:
             continue
     return False  # if the AI is unavailable, the word list is still active
+
 
 
 def call_model(history: list):
