@@ -1,8 +1,8 @@
 import csv
-import re
-import unicodedata
 import os
+import re
 import time
+import unicodedata
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -45,6 +45,9 @@ def load_hospitals():
 
 HOSPITALS = load_hospitals()
 
+# ---------------------------------------------------------------------------
+# Emergency detection: word list, pair rules, then an AI backup check
+# ---------------------------------------------------------------------------
 EMERGENCY_WORDS = [
     # English
     "chest pain", "pain in chest", "can't breathe", "cannot breathe",
@@ -55,54 +58,20 @@ EMERGENCY_WORDS = [
     # Odia
     "ଛାତି ବିନ୍ଧ", "ଛାତିରେ ଯନ୍ତ୍ରଣା", "ନିଶ୍ୱାସ ନେବାକୁ କଷ୍ଟ", "ଶ୍ୱାସକଷ୍ଟ",
     "ବେହୋସ", "ଅଚେତ", "ରକ୍ତ ବାନ୍ତି", "ସାପ କାମୁଡ଼ା",
-         "ସାପ କାମୁଡ",   
-    
+    "ସାପ କାମୁଡ",
     # Hindi
     "सीने में दर्द", "सांस लेने में तकलीफ", "सांस फूल", "बेहोश",
     "दौरा", "खून की उल्टी", "सांप ने काटा", "ज़हर", "जहर",
     # Odia/Hindi in English letters
     "chhati bindh", "behosh", "saans lene mein", "sapa kamuda",
-        "chhati bindhuchi", "chhati bindhu", "chati bindhuchi", "chhati bindha",
+    "chhati bindhuchi", "chhati bindhu", "chati bindhuchi", "chhati bindha",
     "sapa kamudichi", "behosha",
 ]
 
-EMERGENCY_MSG = (
-    "🚨 **EMERGENCY:** Call 108 now or go to the nearest hospital immediately.\n\n"
-    "🚨 **ଜରୁରୀକାଳୀନ:** ଏବେ 108 କୁ କଲ୍ କରନ୍ତୁ କିମ୍ବା ନିକଟତମ ହସ୍ପିଟାଲକୁ ତୁରନ୍ତ ଯାଆନ୍ତୁ।\n\n"
-    "🚨 **आपातकाल:** अभी 108 पर कॉल करें या तुरंत नजदीकी अस्पताल जाएं।"
-)
-
-SYSTEM = """You are Arogya Mitra, a health guidance assistant for rural Odisha.
-- Reply in the same language the patient wrote in (Odia script for Odia, Hindi for Hindi, English for English). Use simple words.
-- Never diagnose. Say "possible causes". Never name medicines or doses.
-- If duration or severity is unknown, ask ONE short follow-up question.
-- Safe advice only: rest, fluids, ORS, light food, when to see a doctor or PHC.
-- Call find_hospitals ONLY when symptoms are serious, have lasted several days, or the patient asks for a hospital. Do not list hospitals for mild symptoms.
-- When you list hospitals, use only what find_hospitals returns. Never invent hospital names or phone numbers. Tell the patient to confirm details before travelling.
-- For anything serious, tell them to call 108 (emergency).
-- When replying in Odia, use simple spoken Odia that a village resident would understand. Avoid bookish or Sanskrit-heavy words. Do not add English words in brackets.
-- Keep replies short: at most 5 bullet points.
-- Format: write every bullet point on its own new line starting with "- ", and leave a blank line between sections.
-- End with a one-line reminder that this is guidance, not a diagnosis."""
-
-
-def find_hospitals(district: str) -> list:
-    """Return hospitals for an Odisha district."""
-    rows = HOSPITALS.get(district.strip().lower())
-    if not rows:
-        return ["Hospital list for this district is not available yet. Please ask a local health worker."]
-    result = []
-    for r in rows:
-        line = f'{r["name"]} ({r["type"]})'
-        phone = (r.get("phone") or "").strip()
-        if phone:
-            line += f", phone: {phone}"
-        result.append(line)
-    return result
-
 EXTRA_WORDS = [
-	    "labour pain", "labor pain", "in labour", "in labor", "baby is not coming",
-    "water broke", "waters broke", "reduced baby movement",       "collapsed", "not waking", "not wake up", "won't wake", "wont wake",
+    "labour pain", "labor pain", "in labour", "in labor", "baby is not coming",
+    "water broke", "waters broke", "reduced baby movement",
+    "collapsed", "not waking", "not wake up", "won't wake", "wont wake",
     "unresponsive", "turning blue", "blue lips", "gasping", "choking",
     "face drooping", "drooping face", "face is drooping", "cannot speak",
     "can't speak", "slurred speech", "paralysed", "paralyzed", "stroke",
@@ -121,6 +90,12 @@ TROUBLE = ["difficult", "trouble", "cannot", "can't", "hard", "gasp", "short",
 PAIR_RULES = [(CHEST, PAIN), (BLOOD, VOMIT), (BREATH, TROUBLE)]
 
 NEGATIONS = r"(?:no|not|without|never|gone)"
+
+EMERGENCY_MSG = (
+    "🚨 **EMERGENCY:** Call 108 now or go to the nearest hospital immediately.\n\n"
+    "🚨 **ଜରୁରୀକାଳୀନ:** ଏବେ 108 କୁ କଲ୍ କରନ୍ତୁ କିମ୍ବା ନିକଟତମ ହସ୍ପିଟାଲକୁ ତୁରନ୍ତ ଯାଆନ୍ତୁ।\n\n"
+    "🚨 **आपातकाल:** अभी 108 पर कॉल करें या तुरंत नजदीकी अस्पताल जाएं।"
+)
 
 
 def _norm(s: str) -> str:
@@ -156,18 +131,49 @@ def is_emergency(text: str) -> bool:
     return False
 
 
+HOSPITAL_WORDS = [
+    "hospital", "clinic", "doctor", "phc", "chc",
+    "ହସ୍ପିଟାଲ", "ଡାକ୍ତର", "अस्पताल", "डॉक्टर", "haspatal",
+]
+SYMPTOM_HINTS = [
+    "pain", "fever", "bleed", "blood", "vomit", "fell", "fall", "weak", "faint",
+    "breath", "baby", "pregnan", "labour", "labor", "snake", "bite", "poison",
+    "injur", "accident", "sick", "hurt", "unconscious", "seizure", "fits", "burn",
+    "swallow", "dizzy", "cough", "cold", "diarrh", "rash", "swelling",
+    "ଯନ୍ତ୍ରଣା", "ଜ୍ୱର", "ରକ୍ତ", "ବାନ୍ତି", "ବେହୋସ", "ଶ୍ୱାସ",
+    "दर्द", "बुखार", "खून", "उल्टी", "बेहोश", "सांस",
+    "dard", "bukhar", "jwara", "jantrana",
+]
+
+
+def is_plain_hospital_question(text: str) -> bool:
+    """True when the message asks about hospitals and describes no symptoms."""
+    t = _norm(text)
+    asks = any(w in t for w in HOSPITAL_WORDS)
+    sick = any(w in t for w in SYMPTOM_HINTS)
+    return asks and not sick
+
+
 def ai_emergency_check(text: str) -> bool:
     """Backup check for emergencies described in words the word list does not know."""
     prompt = (
-        "A patient in rural India wrote this message. Does it describe a possible "
-        "medical emergency? Emergencies include: chest pain, trouble breathing, "
-        "collapse or fainting, unconsciousness, stroke signs (one-sided weakness, "
-        "drooping face, cannot speak), heavy or non-stopping bleeding, seizure or "
-        "fits, snake bite, poisoning or swallowing a harmful substance, a head "
-        "injury with vomiting or sleepiness, a very sick, blue, floppy or shaking "
-        "baby or child, and any serious problem in pregnancy, labour or childbirth "
-        "(for example long or stuck labour, heavy bleeding, fits, or the baby not "
-        "moving). If it is unclear, answer YES. "
+        "A patient in rural India wrote this message. Decide if it describes a "
+        "possible medical emergency happening now. Emergencies include: chest pain, "
+        "trouble breathing, collapse or fainting, unconsciousness, stroke signs "
+        "(one-sided weakness, drooping face, cannot speak), heavy or non-stopping "
+        "bleeding, seizure or fits, snake bite, poisoning or swallowing a harmful "
+        "substance, a head injury with vomiting or sleepiness, a very sick, blue, "
+        "floppy or shaking baby or child, and any serious problem in pregnancy, "
+        "labour or childbirth (for example long or stuck labour, heavy bleeding, "
+        "fits, or the baby not moving).\n"
+        "Rules:\n"
+        "- If the message describes symptoms or an injury and you are not sure "
+        "whether it is dangerous, answer YES.\n"
+        "- If the message does NOT describe a patient's condition (for example it "
+        "only asks about hospitals, medicines, food, prevention, how the app works, "
+        "or is general chat), answer NO.\n"
+        "- If the message mentions only a mild or past problem with no danger signs, "
+        "answer NO.\n"
         "Answer with exactly one word: YES or NO.\n\n"
         f"Message: {text}"
     )
@@ -179,6 +185,37 @@ def ai_emergency_check(text: str) -> bool:
             continue
     return False  # if the AI is unavailable, the word list is still active
 
+
+# ---------------------------------------------------------------------------
+# The chat agent
+# ---------------------------------------------------------------------------
+SYSTEM = """You are Arogya Mitra, a health guidance assistant for rural Odisha.
+- Reply in the same language the patient wrote in (Odia script for Odia, Hindi for Hindi, English for English). Use simple words.
+- Never diagnose. Say "possible causes". Never name medicines or doses.
+- If duration or severity is unknown, ask ONE short follow-up question.
+- Safe advice only: rest, fluids, ORS, light food, when to see a doctor or PHC.
+- Call find_hospitals when symptoms are serious, have lasted several days, or the patient asks for a hospital. Do not list hospitals for mild symptoms.
+- When you list hospitals, use only what find_hospitals returns. Never invent hospital names, ratings or phone numbers. Tell the patient to confirm details before travelling.
+- For anything serious, tell them to call 108 (emergency).
+- When replying in Odia, use simple spoken Odia that a village resident would understand. Avoid bookish or Sanskrit-heavy words. Do not add English words in brackets.
+- Keep replies short: at most 5 bullet points.
+- Format: write every bullet point on its own new line starting with "- ", and leave a blank line between sections.
+- End with a one-line reminder that this is guidance, not a diagnosis."""
+
+
+def find_hospitals(district: str) -> list:
+    """Return hospitals for an Odisha district."""
+    rows = HOSPITALS.get(district.strip().lower())
+    if not rows:
+        return ["Hospital list for this district is not available yet. Please ask a local health worker."]
+    result = []
+    for r in rows:
+        line = f'{r["name"]} ({r["type"]})'
+        phone = (r.get("phone") or "").strip()
+        if phone:
+            line += f", phone: {phone}"
+        result.append(line)
+    return result
 
 
 def call_model(history: list):
@@ -199,10 +236,23 @@ def call_model(history: list):
                 time.sleep(2 * (attempt + 1))
     raise last_error
 
+
+def hospital_block(district: str) -> str:
+    rows = find_hospitals(district)
+    lines = "\n".join(f"- {r}" for r in rows)
+    return (
+        f"🏥 **Hospitals in {district}** (please confirm details before travelling):\n\n"
+        f"{lines}"
+    )
+
+
 def chat(history: list, user_text: str, district: str) -> str:
-    # Safety check runs before the model: word list first, then AI backup.
-    if is_emergency(user_text) or ai_emergency_check(user_text):
-        return EMERGENCY_MSG
+    # Safety check runs before the model: word list first, then the AI backup.
+    # The AI backup is skipped for plain hospital questions with no symptoms.
+    if is_emergency(user_text) or (
+        not is_plain_hospital_question(user_text) and ai_emergency_check(user_text)
+    ):
+        return EMERGENCY_MSG + "\n\n" + hospital_block(district)
 
     history.append(
         types.Content(role="user", parts=[types.Part(text=f"[District: {district}] {user_text}")])
