@@ -141,11 +141,12 @@ district = st.sidebar.selectbox(
 language = st.sidebar.radio("Language / ଭାଷା", ["English", "Odia (ଓଡ଼ିଆ)", "Hindi"])
 st.sidebar.success(f"✅ {district} | {language}")
 
-T = CONTENT[language]
+T = CONTENT[language]  
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["🩺 Symptom Checker", "💬 Quick Help", "🏥 Hospital Finder", "ℹ️ About", "🤖 AI Assistant"]
+tab1, tab5, tab3, tab4 = st.tabs(
+    ["🩺 Symptom Checker", "🤖 AI Assistant", "🏥 Hospital Finder", "ℹ️ About"]
 )
+
 # ---------------------------------------------------------------------------
 # Tab 1: Symptom checker (rule-based)
 # ---------------------------------------------------------------------------
@@ -217,7 +218,7 @@ with tab1:
 # ---------------------------------------------------------------------------
 # Tab 2: Quick help (keyword matching, not an LLM yet)
 # ---------------------------------------------------------------------------
-with tab2:
+if False:  # Quick Help tab removed; replaced by the AI Assistant
     st.subheader("💬 Quick Help")
     st.caption("Keyword-based answers for now. A conversational AI agent is being added.")
     q = st.text_input("Describe your problem:")
@@ -282,22 +283,27 @@ with tab5:
         if "history" not in st.session_state:
             st.session_state.history = []
             st.session_state.messages = []
-        for m in st.session_state.messages:
-            with st.chat_message(m["role"]):
-                st.markdown(m["content"])
+        # Messages live in a fixed-height box, so the input below never moves.
+        chat_box = st.container(height=450, border=True)
         prompt = st.chat_input("Describe your problem...")
-        if prompt:
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    try:
-                        reply = chat(st.session_state.history, prompt, district)
-                    except Exception:
-                        reply = "Sorry, the AI is busy right now. Please try again in a minute."
-                st.markdown(reply)
-            st.session_state.messages.append({"role": "assistant", "content": reply})
+        with chat_box:
+            if not st.session_state.messages and not prompt:
+                st.caption("Your conversation will appear here. Type your problem below.")
+            for m in st.session_state.messages:
+                with st.chat_message(m["role"]):
+                    st.markdown(m["content"])
+            if prompt:
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                with st.chat_message("assistant"):
+                    with st.spinner("Thinking..."):
+                        try:
+                            reply = chat(st.session_state.history, prompt, district)
+                        except Exception:
+                            reply = "Sorry, the AI is busy right now. Please try again in a minute."
+                    st.markdown(reply)
+                st.session_state.messages.append({"role": "assistant", "content": reply})
 
 
 st.divider()
