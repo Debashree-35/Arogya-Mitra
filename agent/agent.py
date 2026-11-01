@@ -13,10 +13,12 @@ client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 # Tries models in this order. If one is busy or missing, it moves to the next.
 _candidates = [
     os.getenv("GEMINI_MODEL"),
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-3.8-flash",
     "gemini-3.5-flash",
 ]
+
+
 MODELS = []
 for m in _candidates:
     if m and m not in MODELS:
@@ -190,7 +192,8 @@ def ai_emergency_check(text: str) -> bool:
 # The chat agent
 # ---------------------------------------------------------------------------
 SYSTEM = """You are Arogya Mitra, a health guidance assistant for rural Odisha.
-- Reply in the same language the patient wrote in (Odia script for Odia, Hindi for Hindi, English for English). Use simple words.
+- Language rule: look at the patient's latest message. If it is written in English words,    reply in English. If it is in Odia script, or in Odia written with English letters (for example "mora jwara heuchi"), reply in Odia script. If it is in Hindi script, or Hindi written with English letters (for example "mujhe bukhar hai"), reply in Hindi script. Never reply in Odia to a message written in plain English. Use simple words.
+- Scope: you only help with health, symptoms, hospitals, and how to use this app. If the patient asks about anything else (general knowledge, politics, news, sports, college or school life, homework, entertainment), do not answer it. Reply in the patient's language with one short, polite sentence saying you can only help with health questions, and ask if they have a health concern. Do not add the guidance reminder for these. Greetings and thanks are fine: reply briefly and ask how you can help with their health.
 - Never diagnose. Say "possible causes". Never name medicines or doses.
 - If duration or severity is unknown, ask ONE short follow-up question.
 - Safe advice only: rest, fluids, ORS, light food, when to see a doctor or PHC.
@@ -218,8 +221,17 @@ def find_hospitals(district: str) -> list:
     return result
 
 
+
+def hospital_block(district: str) -> str:
+    rows = find_hospitals(district)
+    lines = "\n".join(f"- {r}" for r in rows)
+    return (
+        f"🏥 **Hospitals in {district}** (please confirm details before travelling):\n\n"
+        f"{lines}"
+    )
+
 def call_model(history: list):
-    """Try each model, with short retries, until one answers."""
+    """Try each model until one answers. Skip retired or out-of-quota models quickly."""
     last_error = None
     for model in MODELS:
         for attempt in range(2):
@@ -233,17 +245,10 @@ def call_model(history: list):
                 )
             except Exception as e:
                 last_error = e
+                if getattr(e, "code", None) in (404, 429):
+                    break  # model is gone or out of quota: try the next one
                 time.sleep(2 * (attempt + 1))
     raise last_error
-
-
-def hospital_block(district: str) -> str:
-    rows = find_hospitals(district)
-    lines = "\n".join(f"- {r}" for r in rows)
-    return (
-        f"🏥 **Hospitals in {district}** (please confirm details before travelling):\n\n"
-        f"{lines}"
-    )
 
 
 def chat(history: list, user_text: str, district: str) -> str:
