@@ -1,5 +1,9 @@
-import streamlit as st
+import csv
+import os
 from datetime import datetime
+
+import streamlit as st
+
 try:
     from agent.agent import chat
     AGENT_OK = True
@@ -14,17 +18,30 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+DATA_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "data", "odisha", "hospitals.csv"
+)
+
+
+@st.cache_data
+def load_hospital_rows():
+    try:
+        with open(DATA_FILE, encoding="utf-8-sig", newline="") as f:
+            return list(csv.DictReader(f))
+    except FileNotFoundError:
+        return []
+
+
 # ---------------------------------------------------------------------------
-# Content per language.
-# NOTE: Odia and Hindi text should be reviewed by a native speaker.
-# NOTE: No medicine names or dosages on purpose. A rule-based app must not
-#       prescribe. Replace with doctor-reviewed content later.
+# Content for the rule-based Symptom Checker tab.
+# No medicine names or doses on purpose. Odia and Hindi text should be
+# reviewed by a native speaker.
 # ---------------------------------------------------------------------------
 CONTENT = {
     "English": {
         "emergency": "🚨 EMERGENCY: Call 108 now or go to the nearest hospital immediately.",
         "nomed": "Do not take medicines without asking a doctor or pharmacist.",
-        "general": "General illness. Please consult a doctor, or call the 104 health helpline.",
+        "general": "General illness. Please consult a doctor or visit your nearest PHC.",
         "fever": {
             "title": "Possible causes: viral fever, dengue or malaria (cannot be confirmed without tests)",
             "care": "Rest, drink plenty of fluids and ORS, eat light food like khichdi and dalma.",
@@ -45,13 +62,11 @@ CONTENT = {
             "care": "Rest in a quiet dark room and drink water.",
             "extra": "See a doctor urgently for a sudden severe headache, repeated vomiting, or vision problems.",
         },
-        "greeting": "Namaskar! I am Arogya Mitra. Tell me your symptoms.",
-        "fallback": "I did not understand. Please use the Symptom Checker tab, or call 104.",
     },
     "Odia (ଓଡ଼ିଆ)": {
         "emergency": "🚨 ଜରୁରୀକାଳୀନ: ଏବେ 108 କୁ କଲ୍ କରନ୍ତୁ କିମ୍ବା ନିକଟତମ ହସ୍ପିଟାଲକୁ ତୁରନ୍ତ ଯାଆନ୍ତୁ।",
         "nomed": "ଡାକ୍ତର କିମ୍ବା ଫାର୍ମାସିଷ୍ଟଙ୍କୁ ପଚାରିବା ବିନା ଔଷଧ ଖାଆନ୍ତୁ ନାହିଁ।",
-        "general": "ସାଧାରଣ ଅସୁସ୍ଥତା। ଦୟାକରି ଡାକ୍ତରଙ୍କ ପରାମର୍ଶ ନିଅନ୍ତୁ, କିମ୍ବା 104 ହେଲ୍ପଲାଇନକୁ କଲ୍ କରନ୍ତୁ।",
+        "general": "ସାଧାରଣ ଅସୁସ୍ଥତା। ଦୟାକରି ଡାକ୍ତରଙ୍କ ପରାମର୍ଶ ନିଅନ୍ତୁ କିମ୍ବା ନିକଟତମ PHC କୁ ଯାଆନ୍ତୁ।",
         "fever": {
             "title": "ସମ୍ଭାବ୍ୟ କାରଣ: ଭାଇରାଲ ଜ୍ୱର, ଡେଙ୍ଗୁ କିମ୍ବା ମ୍ୟାଲେରିଆ (ପରୀକ୍ଷା ବିନା ନିଶ୍ଚିତ ହୋଇପାରିବ ନାହିଁ)",
             "care": "ବିଶ୍ରାମ ନିଅନ୍ତୁ, ଅଧିକ ପାଣି ଓ ORS ପିଅନ୍ତୁ, ଖିଚଡ଼ି ଓ ଡାଲମା ପରି ହାଲୁକା ଖାଦ୍ୟ ଖାଆନ୍ତୁ।",
@@ -72,13 +87,11 @@ CONTENT = {
             "care": "ଶାନ୍ତ ଅନ୍ଧାର ଘରେ ବିଶ୍ରାମ ନିଅନ୍ତୁ ଓ ପାଣି ପିଅନ୍ତୁ।",
             "extra": "ହଠାତ୍ ତୀବ୍ର ମୁଣ୍ଡ ବିନ୍ଧା, ବାରମ୍ବାର ବାନ୍ତି, କିମ୍ବା ଦୃଷ୍ଟି ସମସ୍ୟା ହେଲେ ତୁରନ୍ତ ଡାକ୍ତର ଦେଖାନ୍ତୁ।",
         },
-        "greeting": "ନମସ୍କାର! ମୁଁ ଆରୋଗ୍ୟ ମିତ୍ର। ଆପଣଙ୍କ ଲକ୍ଷଣ କୁହନ୍ତୁ।",
-        "fallback": "ମୁଁ ବୁଝିପାରିଲି ନାହିଁ। ଦୟାକରି ଲକ୍ଷଣ ଯାଞ୍ଚ ଟ୍ୟାବ୍ ବ୍ୟବହାର କରନ୍ତୁ, କିମ୍ବା 104 କୁ କଲ୍ କରନ୍ତୁ।",
     },
     "Hindi": {
         "emergency": "🚨 आपातकाल: अभी 108 पर कॉल करें या तुरंत नजदीकी अस्पताल जाएं।",
         "nomed": "डॉक्टर या फार्मासिस्ट से पूछे बिना दवा न लें।",
-        "general": "सामान्य बीमारी। कृपया डॉक्टर से सलाह लें, या 104 हेल्पलाइन पर कॉल करें।",
+        "general": "सामान्य बीमारी। कृपया डॉक्टर से सलाह लें या नजदीकी PHC जाएं।",
         "fever": {
             "title": "संभावित कारण: वायरल बुखार, डेंगू या मलेरिया (जाँच के बिना पुष्टि नहीं हो सकती)",
             "care": "आराम करें, खूब पानी और ORS पिएं, खिचड़ी और दालमा जैसा हल्का खाना खाएं।",
@@ -99,22 +112,13 @@ CONTENT = {
             "care": "शांत अंधेरे कमरे में आराम करें और पानी पिएं।",
             "extra": "अचानक तेज सिरदर्द, बार-बार उल्टी, या देखने में दिक्कत हो तो तुरंत डॉक्टर को दिखाएं।",
         },
-        "greeting": "नमस्कार! मैं आरोग्य मित्र हूँ। अपने लक्षण बताइए।",
-        "fallback": "मैं समझ नहीं पाया। कृपया लक्षण जाँच टैब इस्तेमाल करें, या 104 पर कॉल करें।",
     },
 }
 
-CHAT_KEYWORDS = {
-    "fever": ["fever", "jwara", "jara", "joro", "bukhar", "ଜ୍ୱର", "बुखार"],
-    "head": ["head", "munda", "sir", "ମୁଣ୍ଡ", "सिर"],
-    "cold": ["cold", "cough", "thanda", "kasa", "ଥଣ୍ଡା", "सर्दी", "खांसी"],
-    "stomach": ["stomach", "pet", "jhara", "diarrhea", "ପେଟ", "पेट"],
-}
-EMERGENCY_KEYWORDS = ["chest pain", "breathing", "can't breathe", "unconscious", "ଛାତି ବିନ୍ଧା", "सीने में दर्द"]
 RED_FLAGS = {"Chest Pain", "Breathing Difficulty"}
 
 # ---------------------------------------------------------------------------
-# Header
+# Header and sidebar
 # ---------------------------------------------------------------------------
 col1, col2 = st.columns([4, 1])
 with col1:
@@ -126,31 +130,29 @@ with col2:
 
 st.divider()
 
-# ---------------------------------------------------------------------------
-# Sidebar
-# ---------------------------------------------------------------------------
 st.sidebar.title("👤 Patient Profile")
 name = st.sidebar.text_input("Full Name", "")
 age = st.sidebar.number_input("Age", 1, 120, 25)
 gender = st.sidebar.selectbox("Gender", ["Male", "Female", "Other"])
 district = st.sidebar.selectbox(
     "District",
-    ["Bhubaneswar", "Cuttack", "Puri", "Sambalpur", "Berhampur", "Rourkela",
-     "Balasore", "Ganjam", "Mayurbhanj", "Other"],
+    ["Bhubaneswar", "Cuttack", "Puri", "Ganjam", "Berhampur", "Sambalpur",
+     "Rourkela", "Balasore", "Mayurbhanj", "Other"],
 )
 language = st.sidebar.radio("Language / ଭାଷା", ["English", "Odia (ଓଡ଼ିଆ)", "Hindi"])
 st.sidebar.success(f"✅ {district} | {language}")
+st.sidebar.caption("The language setting changes the Symptom Checker. The AI Assistant replies in the language you write in.")
 
-T = CONTENT[language]  
+T = CONTENT[language]
 
-tab1, tab5, tab3, tab4 = st.tabs(
+tab_check, tab_ai, tab_hosp, tab_about = st.tabs(
     ["🩺 Symptom Checker", "🤖 AI Assistant", "🏥 Hospital Finder", "ℹ️ About"]
 )
 
 # ---------------------------------------------------------------------------
-# Tab 1: Symptom checker (rule-based)
+# Tab: Symptom Checker (rule-based)
 # ---------------------------------------------------------------------------
-with tab1:
+with tab_check:
     st.subheader(
         "Step 1: Select Symptoms" if language == "English"
         else "ପଦକ୍ଷେପ 1: ଲକ୍ଷଣ ବାଛନ୍ତୁ" if language.startswith("Odia")
@@ -216,65 +218,9 @@ with tab1:
             )
 
 # ---------------------------------------------------------------------------
-# Tab 2: Quick help (keyword matching, not an LLM yet)
+# Tab: AI Assistant
 # ---------------------------------------------------------------------------
-if False:  # Quick Help tab removed; replaced by the AI Assistant
-    st.subheader("💬 Quick Help")
-    st.caption("Keyword-based answers for now. A conversational AI agent is being added.")
-    q = st.text_input("Describe your problem:")
-    if st.button("Ask"):
-        qq = q.lower().strip()
-        if not qq:
-            st.warning("Please type your question.")
-        elif any(w in qq for w in EMERGENCY_KEYWORDS):
-            st.error(T["emergency"])
-        else:
-            matched = next((c for c, words in CHAT_KEYWORDS.items() if any(w in qq for w in words)), None)
-            if matched:
-                st.success(f"🤖 {T[matched]['title']}")
-                st.write(T[matched]["care"])
-                st.write(T[matched]["extra"])
-                st.caption(T["nomed"])
-            elif any(w in qq for w in ["hi", "hello", "namaskar", "namaste"]):
-                st.success(f"🤖 {T['greeting']}")
-            else:
-                st.info(f"🤖 {T['fallback']}")
-
-# ---------------------------------------------------------------------------
-# Tab 3: Hospital finder. Names only. Replace with sourced data (Step 5).
-# ---------------------------------------------------------------------------
-with tab3:
-    st.subheader("🏥 Hospitals in your district")
-    hospitals = {
-        "Bhubaneswar": ["AIIMS Bhubaneswar", "Capital Hospital", "SUM Ultimate Medicare"],
-        "Cuttack": ["SCB Medical College and Hospital", "Cuttack City Hospital"],
-        "Puri": ["District Headquarters Hospital, Puri"],
-        "Sambalpur": ["VIMSAR, Burla", "District Headquarters Hospital, Sambalpur"],
-        "Berhampur": ["MKCG Medical College and Hospital"],
-        "Rourkela": ["Ispat General Hospital"],
-        "Balasore": ["District Headquarters Hospital, Balasore"],
-        "Ganjam": ["MKCG Medical College and Hospital, Berhampur"],
-        "Mayurbhanj": ["District Headquarters Hospital, Baripada"],
-        "Other": ["Call 104 to find the nearest hospital"],
-    }
-    for h in hospitals.get(district, hospitals["Other"]):
-        st.write(f"✅ {h}")
-    st.caption("Hospital list is a starting point. Please confirm details before travelling. Sourced data coming soon.")
-    st.success("🚨 Emergency ambulance: **108** | Health helpline: **104**")
-
-# ---------------------------------------------------------------------------
-# Tab 4: About (replaces the fake dashboard)
-# ---------------------------------------------------------------------------
-with tab4:
-    st.subheader("About Arogya Mitra")
-    st.write(
-        "Arogya Mitra is an open-source project built for the Code for a Billion: "
-        "Bharat Agentic-AI Hackathon 2026. This pilot focuses on Odisha, with "
-        "English, Odia and Hindi support."
-    )
-    st.write("**Current status:** early prototype. Symptom guidance is rule-based and has not been clinically validated.")
-    st.write("**In progress:** conversational AI agent, sourced hospital data, and tested accuracy.")
-with tab5:
+with tab_ai:
     st.subheader("🤖 AI Health Assistant")
     st.caption("Type in Odia, Hindi or English. Guidance only, not a diagnosis.")
     if not AGENT_OK:
@@ -283,6 +229,10 @@ with tab5:
         if "history" not in st.session_state:
             st.session_state.history = []
             st.session_state.messages = []
+        if st.button("🗑️ Clear chat"):
+            st.session_state.history = []
+            st.session_state.messages = []
+            st.rerun()
         # Messages live in a fixed-height box, so the input below never moves.
         chat_box = st.container(height=450, border=True)
         prompt = st.chat_input("Describe your problem...")
@@ -305,6 +255,38 @@ with tab5:
                     st.markdown(reply)
                 st.session_state.messages.append({"role": "assistant", "content": reply})
 
+# ---------------------------------------------------------------------------
+# Tab: Hospital Finder (reads data/odisha/hospitals.csv)
+# ---------------------------------------------------------------------------
+with tab_hosp:
+    st.subheader("🏥 Hospitals in your district")
+    rows = [r for r in load_hospital_rows() if r["district"].strip().lower() == district.lower()]
+    if rows:
+        for r in rows:
+            st.write(f"✅ **{r['name']}** ({r['type']})")
+            phone = (r.get("phone") or "").strip()
+            if phone:
+                st.caption(f"Phone: {phone}")
+            if (r.get("source") or "").strip():
+                st.caption(f"Source: {r['source']}")
+    else:
+        st.info("Verified hospital data for this district is not available yet. Please ask a local health worker or visit your nearest PHC.")
+    st.caption("Names were checked against official government pages in October 2026. Please confirm details before travelling.")
+    st.success("🚨 Emergency ambulance: **108**")
+
+# ---------------------------------------------------------------------------
+# Tab: About
+# ---------------------------------------------------------------------------
+with tab_about:
+    st.subheader("About Arogya Mitra")
+    st.write(
+        "Arogya Mitra is an open-source project built for the Code for a Billion: "
+        "Bharat Agentic-AI Hackathon 2026. This pilot focuses on Odisha, with "
+        "English, Odia and Hindi support."
+    )
+    st.write("**Status:** early prototype. Guidance is not clinically validated and has not been reviewed by a doctor.")
+    st.write("**How it works:** emergency words are checked first in plain code, then an AI backup check runs, then the AI assistant answers and looks up hospitals from a verified data file.")
+    st.write("**Limits:** hospital data covers a few districts only, and the AI service can be busy or wrong.")
 
 st.divider()
 st.caption(
