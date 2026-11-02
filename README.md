@@ -71,6 +71,9 @@ Hospital names for Bhubaneswar, Cuttack, Puri and Ganjam were checked against of
 - Hospital data covers only four districts and may be out of date
 - Replies depend on a third-party AI service. It can be busy, out of free quota, or wrong
 - Odia and Hindi text was written by the developer and is not reviewed by a language expert
+- The rule-based Symptom Checker uses simple placeholder thresholds that have not been reviewed by a doctor
+- The assistant is checked mainly on short messages, and long or very unusual descriptions may be handled less well
+
 
 ## Run locally
 ```
