@@ -10,15 +10,13 @@ from google.genai import types
 load_dotenv()
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-# Tries models in this order. If one is busy or missing, it moves to the next.
+# Tries models in this order. If one is busy, retired or out of quota, it moves on.
 _candidates = [
     os.getenv("GEMINI_MODEL"),
     "gemini-3.5-flash-lite",
     "gemini-3.8-flash",
     "gemini-3.5-flash",
 ]
-
-
 MODELS = []
 for m in _candidates:
     if m and m not in MODELS:
@@ -156,6 +154,31 @@ def is_plain_hospital_question(text: str) -> bool:
     return asks and not sick
 
 
+MILD_WORDS = [
+    "fever", "cough", "cold", "headache", "loose motion", "diarrhea", "sore throat",
+    "jwara", "jara", "bukhar", "kasa", "khansi", "sardi", "thanda", "jhada", "munda",
+    "ଜ୍ୱର", "କାଶ", "ଥଣ୍ଡା", "ଝାଡ଼ା", "बुखार", "खांसी", "सर्दी", "जुकाम",
+]
+DANGER_HINTS = [
+    "very", "severe", "heavy", "blood", "bleed", "fell", "fall", "faint", "weak",
+    "baby", "child", "infant", "pregnan", "labour", "labor", "snake", "bite",
+    "poison", "unconscious", "breath", "chest", "seizure", "fits", "shaking",
+    "cannot", "can't", "suddenly", "accident", "not moving", "bahut", "chhati",
+    "saans", "khoon", "ବହୁତ", "ରକ୍ତ", "ଛାତି", "ଶ୍ୱାସ", "बहुत", "खून", "सांस",
+    "छाती", "बच्चा", "बच्चे",
+]
+
+
+def is_mild_only(text: str) -> bool:
+    """True for a short message that names only a mild symptom and no danger hint."""
+    t = _norm(text)
+    if len(t.split()) > 10:
+        return False
+    mild = any(_norm(w) in t for w in MILD_WORDS)
+    danger = any(_norm(w) in t for w in DANGER_HINTS)
+    return mild and not danger
+
+
 def ai_emergency_check(text: str) -> bool:
     """Backup check for emergencies described in words the word list does not know."""
     prompt = (
@@ -192,7 +215,7 @@ def ai_emergency_check(text: str) -> bool:
 # The chat agent
 # ---------------------------------------------------------------------------
 SYSTEM = """You are Arogya Mitra, a health guidance assistant for rural Odisha.
-- Language rule: look at the patient's latest message. If it is written in English words,    reply in English. If it is in Odia script, or in Odia written with English letters (for example "mora jwara heuchi"), reply in Odia script. If it is in Hindi script, or Hindi written with English letters (for example "mujhe bukhar hai"), reply in Hindi script. Never reply in Odia to a message written in plain English. Use simple words.
+- Language rule: look at the patient's latest message. If it is written in English words, reply in English. If it is in Odia script, or in Odia written with English letters (for example "mora jwara heuchi"), reply in Odia script. If it is in Hindi script, or Hindi written with English letters (for example "mujhe bukhar hai"), reply in Hindi script. Never reply in Odia to a message written in plain English. Use simple words.
 - Scope: you only help with health, symptoms, hospitals, and how to use this app. If the patient asks about anything else (general knowledge, politics, news, sports, college or school life, homework, entertainment), do not answer it. Reply in the patient's language with one short, polite sentence saying you can only help with health questions, and ask if they have a health concern. Do not add the guidance reminder for these. Greetings and thanks are fine: reply briefly and ask how you can help with their health.
 - Never diagnose. Say "possible causes". Never name medicines or doses.
 - If duration or severity is unknown, ask ONE short follow-up question.
@@ -203,7 +226,7 @@ SYSTEM = """You are Arogya Mitra, a health guidance assistant for rural Odisha.
 - When replying in Odia, use simple spoken Odia that a village resident would understand. Avoid bookish or Sanskrit-heavy words. Do not add English words in brackets.
 - Keep replies short: at most 5 bullet points.
 - Format: write every bullet point on its own new line starting with "- ", and leave a blank line between sections.
-- End with a one-line reminder that this is guidance, not a diagnosis."""
+- End health replies with a one-line reminder that this is guidance, not a diagnosis."""
 
 
 def find_hospitals(district: str) -> list:
@@ -220,15 +243,6 @@ def find_hospitals(district: str) -> list:
         result.append(line)
     return result
 
-
-
-def hospital_block(district: str) -> str:
-    rows = find_hospitals(district)
-    lines = "\n".join(f"- {r}" for r in rows)
-    return (
-        f"🏥 **Hospitals in {district}** (please confirm details before travelling):\n\n"
-        f"{lines}"
-    )
 
 def call_model(history: list):
     """Try each model until one answers. Skip retired or out-of-quota models quickly."""
@@ -251,12 +265,20 @@ def call_model(history: list):
     raise last_error
 
 
+def hospital_block(district: str) -> str:
+    rows = find_hospitals(district)
+    lines = "\n".join(f"- {r}" for r in rows)
+    return (
+        f"🏥 **Hospitals in {district}** (please confirm details before travelling):\n\n"
+        f"{lines}"
+    )
+
+
 def chat(history: list, user_text: str, district: str) -> str:
     # Safety check runs before the model: word list first, then the AI backup.
-    # The AI backup is skipped for plain hospital questions with no symptoms.
-    if is_emergency(user_text) or (
-        not is_plain_hospital_question(user_text) and ai_emergency_check(user_text)
-    ):
+    # The AI backup is skipped for plain hospital questions and short mild-symptom messages.
+    skip_ai_check = is_plain_hospital_question(user_text) or is_mild_only(user_text)
+    if is_emergency(user_text) or (not skip_ai_check and ai_emergency_check(user_text)):
         return EMERGENCY_MSG + "\n\n" + hospital_block(district)
 
     history.append(
