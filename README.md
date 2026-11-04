@@ -53,11 +53,13 @@ Emergency detection only, using small test sets written by the developer. These 
 - A lighter model answered an English message in Odia, so the language rule was made explicit.
 - Some Gemini model names were retired and free-tier quota ran out, so the app now skips unavailable models and tries the next one.
 - A tester found that the chat input moved down after every message, so messages now sit in a fixed-height box.
+- The AI backup flagged `mora jwara heuchi` (romanized Odia for "I have fever") as an emergency, because the lighter model could not read it and was told to answer YES when unsure. Fixed with a plain-code rule that skips the AI backup for short messages with only a mild symptom word and no danger hint.
+- Hospital names come from an English-language data file, so they appear in English letters even in Odia replies.
 
 Most of these were checked on only a few examples. A larger false-alarm test is still needed.
 
 ## User testing
-Tested remotely by 1 friend on an android phone , in English. Everything worked normally except the chat layout bug above, which was fixed. Not yet tested with a nurse, ASHA or ANM worker, or with people who are not comfortable with phones.
+Tested remotely by 1 friend on an android phone , in English. Everything worked normally except the chat layout bug above, which was fixed. Odia replies were checked by the developer, who speaks Odia . Not yet tested with a nurse, ASHA or ANM worker, or with people who are not comfortable with phones.
 
 ## Data
 Hospital names for Bhubaneswar, Cuttack, Puri and Ganjam were checked against official district and state government pages in October 2026. Phone numbers are not included because they could not be verified. Some official pages use older data, so patients should confirm details before travelling. Names and types were checked, but not addresses, opening hours or services.
@@ -73,6 +75,14 @@ Hospital names for Bhubaneswar, Cuttack, Puri and Ganjam were checked against of
 - Odia and Hindi text was written by the developer and is not reviewed by a language expert
 - The rule-based Symptom Checker uses simple placeholder thresholds that have not been reviewed by a doctor
 - The assistant is checked mainly on short messages, and long or very unusual descriptions may be handled less well
+- Romanized Odia is understood less reliably than Odia script
+- To save free AI quota and avoid false alarms, the AI safety check is skipped for short messages that mention only a mild symptom. An emergency worded only with mild words could be missed, although the plain-code danger words still apply
+- Hospital names are shown in English letters, even in Odia replies
+
+
+## Privacy
+Messages typed into the AI Assistant are sent to Google's Gemini API to generate replies. The app does not save chats on its own server, and a chat is cleared when the page is closed or the Clear chat button is pressed. Please do not enter real personal health details while this is a prototype.
+
 
 
 ## Run locally
