@@ -4,6 +4,7 @@ Multilingual (Odia, Hindi, English) health guidance for rural India.
 **Pilot: Odisha.** Built for Code for a Billion: Bharat Agentic-AI Hackathon 2026.
 
 **Live demo:** https://arogya-mitra-bharat.streamlit.app
+If the app shows "This app has gone to sleep", click the wake-up button and wait up to a minute.
 
 > Arogya Mitra gives general health guidance only. It is not a medical diagnosis tool and does not replace a doctor. In an emergency call 108.
 
