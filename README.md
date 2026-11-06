@@ -1,5 +1,7 @@
 # Arogya Mitra 🩺
 
+**Track:** Health · **Built with:** AgentFoundry IDE · **Demo video:** (link to add)
+
 Multilingual (Odia, Hindi, English) health guidance for rural India.
 **Pilot: Odisha.** Built for Code for a Billion: Bharat Agentic-AI Hackathon 2026.
 
